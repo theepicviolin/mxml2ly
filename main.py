@@ -110,7 +110,13 @@ class Note:
                                 pass
                             case "articulations" | "technical":
                                 for articulation in child:
-                                    self.articulations += '-' + self.art_dict[articulation.tag]
+                                    articulation_type = articulation.tag
+                                    if articulation_type == "fingering":
+                                        self.articulations += '-' + articulation.text
+                                    elif articulation_type in self.art_dict:
+                                        self.articulations += '-' + self.art_dict[articulation_type]
+                                    else:
+                                        raise ImportError("Unrecognized articulation type: " + articulation_type)
                             case "slur":
                                 self.slur = self.slur_dict[child.get("type")]
                             case "tied":
@@ -279,6 +285,18 @@ class Instrument:
                                         beat_unit = Note.duration_dict[direction_type_child.find("beat-unit").text]
                                         tempo = direction_type_child.find("per-minute").text
                                         measure_strs += [f'\\tempo {beat_unit} = {tempo}']
+                                    case "octave-shift":
+                                        shift_amount = direction_type_child.get("number")
+                                        match direction_type_child.get("type"):
+                                            case "up":
+                                                shift_amount = '-' + shift_amount
+                                            case "stop":
+                                                shift_amount = '0'
+                                            case "down":
+                                                pass
+                                            case _:
+                                                raise ImportError("Unrecognized octave shift details")
+                                        measure_strs += [f'\\ottava #{shift_amount} ']
                                     case _:
                                         raise ImportError("Unrecognized direction type: " + direction_type_child.tag)
                                 if expression_buffer:
