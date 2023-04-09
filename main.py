@@ -81,7 +81,8 @@ class Note:
                         warnings.warn("Unslashed grace note in measure " + measure_num)
                     self.grace = "\\acciaccatura "
                 case "accidental":
-                    pass
+                    if noteChild.get("parentheses") == "yes":
+                        self.pitch[0] += '?'
                 case "time-modification":
                     num = int(noteChild.find("actual-notes").text)
                     den = int(noteChild.find("normal-notes").text)
@@ -413,7 +414,7 @@ def parse(filename, config_info):
     file_str += ''.join([i.book_str for i in instruments])
 
     file_str += """
-%%{
+%%{Fle
 \\book {
   \\paper {
     #(layout-set-staff-size 17)
