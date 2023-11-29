@@ -3,19 +3,26 @@ import warnings
 from expression import Expression
 
 
-def duration_num_to_str(duration_num):
+def duration_num_to_str(duration_num, measure_duration):
     max_denominator = 1024
-    if 1 / duration_num == int(1 / duration_num):
-        return str(int(1 / duration_num))
-    elif 1.5 / duration_num == int(1.5 / duration_num):
-        return f"{int(1.5 / duration_num)}."
+    if duration_num <= measure_duration:
+        if 1 / duration_num == int(1 / duration_num):
+            return str(int(1 / duration_num))
+        elif 1.5 / duration_num == int(1.5 / duration_num):
+            return f"{int(1.5 / duration_num)}."
+        else:
+            denominator = 1
+            while (abs(duration_num - int(duration_num)) > denominator / (max_denominator * 2) and
+                   denominator < max_denominator):
+                duration_num *= 2
+                denominator *= 2
+            return f"{denominator}*{int(duration_num)}"
     else:
-        denominator = 1
-        while (abs(duration_num - int(duration_num)) > denominator / (max_denominator * 2) and
-               denominator < max_denominator):
-            duration_num *= 2
-            denominator *= 2
-        return f"{denominator}*{int(duration_num)}"
+        measure_str = duration_num_to_str(measure_duration, measure_duration)
+        if duration_num / measure_duration == int(duration_num / measure_duration):
+            return f"{measure_str}*{int(duration_num / measure_duration)}"
+        else:
+            return duration_num_to_str(duration_num, duration_num)
 
 
 class Note:
@@ -65,7 +72,7 @@ class Note:
         if note_element is None:
             for key, value in kwargs.items():
                 setattr(self, key, value)
-            self.duration = duration_num_to_str(self.duration_num)
+            self.duration = duration_num_to_str(self.duration_num, measure_duration)
             return
 
         for note_child in note_element:
@@ -93,7 +100,7 @@ class Note:
                                          int(note_element.find("duration").text) / divisions == measure_duration)
                     if note_child.get("measure") == "yes" or is_mismatched:
                         self.pitch = ['R']
-                        self.duration = duration_num_to_str(measure_duration)
+                        self.duration = duration_num_to_str(measure_duration, measure_duration)
                         written_duration = measure_duration
                     else:
                         self.pitch = ["r"]
@@ -234,4 +241,8 @@ class Note:
     def __eq__(self, other):
         if not isinstance(other, Note):
             return False
-        return str(self) == str(other)
+        return (self.pitch == other.pitch and self.duration == other.duration and self.dot == other.dot and
+                self.grace == other.grace and self.start_tuplet == other.start_tuplet and
+                self.end_tuplet == other.end_tuplet and self.articulations == other.articulations and
+                self.slur == other.slur and self.tie == other.tie and self.chord == other.chord and
+                self.trill == other.trill and self.cue == other.cue and self.glissando == other.glissando)

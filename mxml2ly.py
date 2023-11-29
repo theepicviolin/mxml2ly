@@ -8,7 +8,8 @@ from instrument import Instrument
 import argparse
 
 
-def parse(filename, config_info):
+def parse(args, config_info):
+    filename = args.input
     arranger = config_info['Preferences']['Arranger']
     version = config_info['Preferences']['Version']
     tree = ET.parse(filename)
@@ -27,16 +28,21 @@ def parse(filename, config_info):
       tagline = #f
     }}
     """
-    instruments = [Instrument(instr_elem, part_list) for instr_elem in root if instr_elem.tag == 'part']
+    instruments = [Instrument(instr_elem, part_list, args.debug) for instr_elem in root if instr_elem.tag == 'part']
     file_str += '\n\n\n'.join([i.instrument_str for i in instruments])
     file_str += '\n\n'
     file_str += ''.join([i.name_str for i in instruments])
-    file_str += '\n% Separate Files for Each Instrument\n'
+    if args.parts == 'together':
+        file_str += '\n% Separate Files for Each Instrument\n%{\n'
+    else:
+        file_str += '\n% Separate Files for Each Instrument\n%%{\n'
     file_str += ''.join([i.book_str for i in instruments])
 
-    file_str += '\n% One File for All Instruments'
+    if args.parts == 'together':
+        file_str += '%}\n\n% One File for All Instruments\n%%{'
+    else:
+        file_str += '%}\n\n% One File for All Instruments\n%{'
     file_str += """
-%%{
 \\book {
   \\bookOutputSuffix "Parts"
   \\paper {
@@ -79,25 +85,45 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Convert MusicXML to LilyPond')
     parser.add_argument('-i', '--input', help='Input file (*.musicxml)')
     parser.add_argument('-o', '--output', help='Output file (*.ly)')
+    parser.add_argument('-p', '--parts', help='Output parts separately or together')
+    parser.add_argument('-d', '--debug', help='Debug mode')
     args = parser.parse_args()
+
+    if args.input is None or not os.path.isfile(args.input) or not args.input.endswith('.musicxml'):
+        args.input = None
+
+    if args.output is None or not args.output.endswith('.ly'):
+        args.output = None
+
+    if args.parts is None:
+        args.parts = 'together'
+    args.parts = args.parts.lower()
+    if args.parts in ['separate', 's']:
+        args.parts = 'separate'
+    else:
+        args.parts = 'together'
+
+    if isinstance(args.debug, str):
+        args.debug = args.debug.lower()
+    if args.debug in ['true', 't', 'yes', 'y', '1']:
+        args.debug = True
+    else:
+        args.debug = False
 
     if args.input is None:
         root = tk.Tk()
         root.withdraw()
-        file = filedialog.askopenfilename(initialdir=config['Preferences']['DefaultInputDir'],
+        args.input = filedialog.askopenfilename(initialdir=config['Preferences']['DefaultInputDir'],
                                           filetypes=[("MusicXML Files", "*.musicxml")])
-    else:
-        file = args.input
-
-    if file == "":
+    if args.input == "":
         print("Please select a file.")
     else:
-        file_str = parse(file, config)
+        file_str = parse(args, config)
 
         if args.output is not None:
             output_file = args.output
         else:
-            file_basename = os.path.splitext(os.path.basename(file))[0]
+            file_basename = os.path.splitext(os.path.basename(args.input))[0]
             output_file = filedialog.asksaveasfilename(initialdir=config['Preferences']['DefaultOutputDir'],
                                                        filetypes=[("LilyPond Files", "*.ly")],
                                                        initialfile=file_basename,
