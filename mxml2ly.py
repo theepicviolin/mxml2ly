@@ -1,4 +1,3 @@
-import warnings
 import xml.etree.ElementTree as ET
 import configparser
 import os
@@ -114,7 +113,7 @@ if __name__ == '__main__':
         root = tk.Tk()
         root.withdraw()
         args.input = filedialog.askopenfilename(initialdir=config['Preferences']['DefaultInputDir'],
-                                          filetypes=[("MusicXML Files", "*.musicxml")])
+                                                filetypes=[("MusicXML Files", "*.musicxml")])
     if args.input == "":
         print("Please select a file.")
     else:
