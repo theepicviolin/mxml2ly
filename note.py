@@ -129,7 +129,7 @@ class Note:
                 case "type":
                     if self.pitch != ['R']:
                         self.duration = self.duration_dict[note_child.text]
-                        written_duration = 1 / int(self.duration_dict[note_child.text])
+                        written_duration = 1 / int(self.duration)
                 case "stem":
                     pass
                 case "beam":

@@ -184,6 +184,8 @@ class Instrument:
                                             this_buffer = "\\!"
                                     case "metronome":
                                         beat_unit = Note.duration_dict[direction_type_child.find("beat-unit").text]
+                                        if direction_type_child.find("beat-unit-dot") is not None:
+                                            beat_unit += "."
                                         tempo = direction_type_child.find("per-minute").text
                                         measure_strs.append(f'\\tempo {beat_unit} = {tempo}')
                                     case "octave-shift":
