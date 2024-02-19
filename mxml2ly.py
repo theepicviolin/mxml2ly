@@ -11,6 +11,7 @@ def parse(args, config_info):
     filename = args.input
     arranger = config_info['Preferences']['Arranger']
     version = config_info['Preferences']['Version']
+    subtitle = args.subtitle
     tree = ET.parse(filename)
     root = tree.getroot()
     if root.tag != "score-partwise":
@@ -18,14 +19,16 @@ def parse(args, config_info):
     part_list = root.find('part-list')
     title = root.find('work').find('work-title').text
     composer = root.find('identification').find('creator').text
-    file_str = f'\\version "{version}"\n\\language "english"\n#(set-default-paper-size "letter")\n\n'
+    file_str = f'\\version "{version}"\n\\language "english"\n#(set-default-paper-size "letter")\n%\\pointAndClickOff\n\n'
     file_str += f"""\\header {{
       title = "{title}"
-      subtitle = \\markup {{the \\italic "Subtitle"}}
+      subtitle = {subtitle}
       composer = "{composer}"
       arranger = "arr. {arranger}"
       tagline = #f
     }}
+    ub = \\upbow
+    db = \\downbow
     """
     instruments = [Instrument(instr_elem, part_list, args.debug) for instr_elem in root if instr_elem.tag == 'part']
     file_str += '\n\n\n'.join([i.instrument_str for i in instruments])
@@ -86,6 +89,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output', help='Output file (*.ly)')
     parser.add_argument('-p', '--parts', help='Output parts separately or together')
     parser.add_argument('-d', '--debug', help='Debug mode')
+    parser.add_argument('-s', '--subtitle', help='Subtitle in Lilypond markup (including \\markup)')
     args = parser.parse_args()
 
     if args.input is None or not os.path.isfile(args.input) or not args.input.endswith('.musicxml'):
@@ -101,6 +105,9 @@ if __name__ == '__main__':
         args.parts = 'separate'
     else:
         args.parts = 'together'
+
+    if args.subtitle is None:
+        args.subtitle = "\\markup {the \\italic \"Subtitle\"}"
 
     if isinstance(args.debug, str):
         args.debug = args.debug.lower()
