@@ -9,9 +9,10 @@ You can call it from the command line too, and provide the following arguments:
 - `-i` `--input` The input MusicXML file (default: prompt with a file dialog)
 - `-o` `--output` The output LilyPond file (default: prompt with a file dialog)
 - `-p` `--parts` Whether the parts should be extracted into separate files, or kept in one file. Can be `separate` or `together`. The code to generate both is included, but this option selects which one will be left uncommented. (default: `together`)
-- `-d` `--debug` Whether to print debug messages (default: `False`) 
+- `-d` `--debug` Whether to print debug messages (default: `False`)
+- `-s` `--subtitle` The subtitle of the score in LilyPond markup (default: `\markup {the \italic \"Subtitle\"}`) 
 
-Example: `python mxml2ly.py -i song.musicxml --output song.ly -p separate -d true`
+Example: `python mxml2ly.py -i song.musicxml --output song.ly -p separate -d true -s "\markup {from \italic \"Media\"}"`
 
 You can set the following values in the `preferences.ini` file: 
 - `Arranger`  Your name, which will be automatically added to the score as the arranger
