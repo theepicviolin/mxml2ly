@@ -82,7 +82,7 @@ def parse(args, config_info):
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
-    config.read('.\\preferences.ini')
+    config.read(os.path.join(".", "preferences.ini"))
 
     parser = argparse.ArgumentParser(description='Convert MusicXML to LilyPond')
     parser.add_argument('-i', '--input', help='Input file (*.musicxml)')

@@ -3,3 +3,4 @@
 *.pdf
 *.ini
 *.log
+__pycache__/*
