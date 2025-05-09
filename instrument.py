@@ -156,7 +156,10 @@ class Instrument:
                             end_extended_rest = True
                         for direction_child in measure_child:
                             if direction_child.tag not in ["direction-type", "sound", "voice", "staff"]:
-                                raise ImportError("Unrecognized direction: " + direction_child.tag)
+                                if direction_child.tag == "offset": 
+                                    warnings.warn(f"Ignoring \"{direction_child.tag}\" in mm. {measure_num}")
+                                else:
+                                    raise ImportError("Unrecognized direction: " + direction_child.tag)
                             if direction_child.tag == "voice" and direction_child.text != "1":
                                 raise ImportError("Multiple voices in measure: " + measure_num)
                             for direction_type_child in direction_child:
@@ -205,9 +208,18 @@ class Instrument:
                     case "barline":
                         bars = {
                             "light-light": '"||"',
-                            "light-heavy": '"|."'
+                            "light-heavy": '"|."',
+                            "heavy-light": '".|"',
                         }
                         bar_style = bars[measure_child.find("bar-style").text]
+                        if measure_child.find("repeat") is not None:
+                            repeat = measure_child.find("repeat").get("direction")
+                            if repeat == "forward":
+                                bar_style = bar_style[:-1] + ':"'
+                            elif repeat == "backward":
+                                bar_style = '":' + bar_style[1:]
+                            else:
+                                raise ImportError("Unrecognized repeat direction: " + repeat)
                         measure_strs.append(f"\\bar {bar_style}")
                         end_extended_rest = True
                     case "backup":

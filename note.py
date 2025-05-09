@@ -33,7 +33,8 @@ class Note:
         "quarter": '4',
         "eighth": '8',
         "16th": '16',
-        "32nd": '32'
+        "32nd": '32',
+        "64th": '64',
     }
     art_dict = {"staccato": '.', "tenuto": '-', "snap-pizzicato": '\\snappizzicato', 'accent': '>', 'down-bow': '\\db',
                 'up-bow': '\\ub'}

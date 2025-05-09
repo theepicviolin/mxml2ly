@@ -18,7 +18,13 @@ def parse(args, config_info):
         raise ImportError("MusicXML file must be partwise")
     part_list = root.find('part-list')
     title = root.find('work').find('work-title').text
-    composer = root.find('identification').find('creator').text
+    if title is None:
+        title = os.path.splitext(os.path.basename(filename))[0]
+    composer = root.find('identification').find('creator')
+    if composer is None:
+        composer = 'Composer Unknown'
+    else:
+        composer = composer.text
     file_str = f'\\version "{version}"\n\\language "english"\n#(set-default-paper-size "letter")\n%\\pointAndClickOff\n\n'
     file_str += f"""\\header {{
       title = "{title}"
@@ -85,14 +91,14 @@ if __name__ == '__main__':
     config.read(os.path.join(".", "preferences.ini"))
 
     parser = argparse.ArgumentParser(description='Convert MusicXML to LilyPond')
-    parser.add_argument('-i', '--input', help='Input file (*.musicxml)')
+    parser.add_argument('-i', '--input', help='Input file (*.musicxml;*.xml)')
     parser.add_argument('-o', '--output', help='Output file (*.ly)')
     parser.add_argument('-p', '--parts', help='Output parts separately or together')
     parser.add_argument('-d', '--debug', help='Debug mode')
     parser.add_argument('-s', '--subtitle', help='Subtitle in Lilypond markup (including \\markup)')
     args = parser.parse_args()
 
-    if args.input is None or not os.path.isfile(args.input) or not args.input.endswith('.musicxml'):
+    if args.input is None or not os.path.isfile(args.input) or (not args.input.endswith('.musicxml') and not args.input.endswith('.xml')):
         args.input = None
 
     if args.output is None or not args.output.endswith('.ly'):
@@ -120,7 +126,8 @@ if __name__ == '__main__':
         root = tk.Tk()
         root.withdraw()
         args.input = filedialog.askopenfilename(initialdir=config['Preferences']['DefaultInputDir'],
-                                                filetypes=[("MusicXML Files", "*.musicxml")])
+                                                filetypes=[("MusicXML Files", "*.musicxml;*.xml")])
+        
     if args.input == "":
         print("Please select a file.")
     else:
