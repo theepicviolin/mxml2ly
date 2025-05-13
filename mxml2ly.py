@@ -17,7 +17,10 @@ def parse(args, config_info):
     if root.tag != "score-partwise":
         raise ImportError("MusicXML file must be partwise")
     part_list = root.find('part-list')
-    title = root.find('work').find('work-title').text
+    title = None
+    work = root.find('work')
+    if work is not None:
+        title = work.find('work-title').text
     if title is None:
         title = os.path.splitext(os.path.basename(filename))[0]
     composer = root.find('identification').find('creator')
@@ -37,6 +40,8 @@ def parse(args, config_info):
     db = \\downbow
     """
     instruments = [Instrument(instr_elem, part_list, args.debug) for instr_elem in root if instr_elem.tag == 'part']
+    instruments = [i for i in instruments if not i.percussion]
+
     file_str += '\n\n\n'.join([i.instrument_str for i in instruments])
     file_str += '\n\n'
     file_str += ''.join([i.name_str for i in instruments])
@@ -126,7 +131,7 @@ if __name__ == '__main__':
         root = tk.Tk()
         root.withdraw()
         args.input = filedialog.askopenfilename(initialdir=config['Preferences']['DefaultInputDir'],
-                                                filetypes=[("MusicXML Files", "*.musicxml;*.xml")])
+                                                filetypes=[("MusicXML Files", "*.musicxml;*.xml"), ("All files", "*.*")])
         
     if args.input == "":
         print("Please select a file.")

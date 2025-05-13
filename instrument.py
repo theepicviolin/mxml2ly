@@ -55,6 +55,31 @@ def add_note(new_note, instrument_strs, expression_buffer, measure_strs, remaini
     return expression_buffer, remaining_backup_duration, in_cue
 
 
+def replace_with_extended_rests(instrument_strs, extended_rest_measure_duration, n_measures_extended_rest, time_info): 
+    instrument_strs_idx = -1
+    first_rest_idx = None
+    last_rest_idx = None
+    n_measures_counted = 0
+    extended_rest_measure_note = Note(None, time_info, in_cue=False, cue=False, pitch=['R'], duration_num=extended_rest_measure_duration)
+    for s in reversed(instrument_strs[:-1]):
+        instrument_strs_idx -= 1
+        if isinstance(s, Note):
+            if s == extended_rest_measure_note:
+                first_rest_idx = instrument_strs_idx
+                n_measures_counted += 1
+                if last_rest_idx is None:
+                    last_rest_idx = instrument_strs_idx
+            if n_measures_counted == n_measures_extended_rest:
+                break
+    assert n_measures_counted == n_measures_extended_rest
+    assert first_rest_idx is not None
+    assert last_rest_idx is not None
+    last_note = instrument_strs[first_rest_idx]
+    last_note.duration_num = n_measures_extended_rest * extended_rest_measure_duration
+    last_note.duration = note.duration_num_to_str(last_note.duration_num, extended_rest_measure_duration)
+    instrument_strs[first_rest_idx+1:last_rest_idx+1] = []
+
+
 class Instrument:
     def __init__(self, instrument_element, part_list, debug):
         key_dict = {
@@ -81,20 +106,33 @@ class Instrument:
         part = [part for part in part_list if part.get("id") == self.id][0]
         self.full_name = part.find("part-name").text
         self.var_name = self.full_name.replace(' ', '_')
+        self.var_name = self.var_name.replace('1', 'I')
+        self.var_name = self.var_name.replace('2', 'II')
         instrument_strs = [self.var_name + ' = \\compressMMRests {\n\\accidentalStyle Score.modern-cautionary\n']
         last_chord = None
         remaining_backup_duration = 0
         expression_buffer = Expression('')
         in_cue = False
-        n_measures_rest = 0
+        n_measures_extended_rest = 0
+        n_measures_current_rest = 0
         end_extended_rest = False
+        end_extended_rest_after = False  # only triggered by barlines
+        extended_rest_measure_duration = measure_duration
+        self.percussion = False
+        pickup_idx = -1
+        pickup_duration = 0
 
+        if debug:
+            print(f"Start parsing instrument: {self.full_name} ({self.id})")
         for measure in instrument_element:
             assert measure.tag == "measure"
             measure_strs = []
             measure_num = measure.get("number")
+            if debug:
+                print(f"Start parsing measure: {measure_num}")
             if int(measure_num) % 4 == 1:  # new line every 4 measures
                 instrument_strs.append(f"% Measure {measure_num}\n")
+            extended_rest_measure_duration = measure_duration
             for measure_child in measure:
                 measure_rest_note = Note(None, time_info, in_cue=False, cue=False, pitch=['R'], duration_num=measure_duration)
                 match measure_child.tag:
@@ -104,12 +142,16 @@ class Instrument:
                         else:
                             duration = int(measure_child.find("duration").text) / divisions
                             new_note = Note(None, time_info, in_cue=in_cue, cue=in_cue, pitch=['s'], duration_num=duration)
-
+                        if measure_num == "1" and not new_note.chord and remaining_backup_duration == 0:
+                            pickup_duration += new_note.duration_num
                         ret = add_note(new_note, instrument_strs, expression_buffer, measure_strs, remaining_backup_duration)
                         if new_note == measure_rest_note:
-                            n_measures_rest += 1
+                            n_measures_current_rest += 1
                         else:
-                            end_extended_rest = True
+                            if n_measures_current_rest > 0:
+                                end_extended_rest = True
+                                n_measures_extended_rest = n_measures_current_rest
+                                n_measures_current_rest = 0
                         expression_buffer, remaining_backup_duration, in_cue = ret
                     case "attributes":
                         for attribute_child in measure_child:
@@ -119,24 +161,43 @@ class Instrument:
                                 case "key":
                                     key = key_dict[measure_child.find("key").find("fifths").text]
                                     measure_strs.append(f"\\key {key} \\major")
-                                    if n_measures_rest > 0:
+                                    if n_measures_current_rest > 0:
                                         end_extended_rest = True
+                                        n_measures_extended_rest = n_measures_current_rest
+                                        n_measures_current_rest = 0
                                 case "time":
                                     time_num = int(measure_child.find("time").find("beats").text)
                                     time_den = int(measure_child.find("time").find("beat-type").text)
                                     measure_duration = time_num / time_den
                                     time_info = (divisions, measure_duration)
                                     measure_strs.append(f"\\time {time_num}/{time_den}")
-                                    if n_measures_rest > 0:
+                                    if pickup_idx == -1:
+                                        pickup_idx = len(measure_strs)
+                                        measure_strs.append(f"\\partial ")
+                                    if n_measures_current_rest > 0:
                                         end_extended_rest = True
+                                        n_measures_extended_rest = n_measures_current_rest
+                                        n_measures_current_rest = 0
                                 case "clef":
                                     clef = attribute_child.find("sign").text
+                                    if clef == "percussion":
+                                        warnings.warn("Skipping percussion clef instrument " + self.full_name)
+                                        self.percussion = True
+                                        return
                                     if attribute_child.find("clef-octave-change") is not None:
-                                        if attribute_child.find("clef-octave-change").text == "-1" and clef == "G":
-                                            clef = "GG"
+                                        if attribute_child.find("clef-octave-change").text == "-1":
+                                            if clef == "G":
+                                                clef = "GG"
+                                            else:
+                                                clef = f'"{clef}_8"'
+                                        else:
+                                            warnings.warn("Skipping clef octave change for instrument " + self.full_name)
+                                        
                                     measure_strs.append(f'\\clef {clef}')
-                                    if n_measures_rest > 0:
+                                    if n_measures_current_rest > 0:
                                         end_extended_rest = True
+                                        n_measures_extended_rest = n_measures_current_rest
+                                        n_measures_current_rest = 0
                                 case "measure-style":
                                     if attribute_child.find("multiple-rest") is not None:
                                         continue
@@ -144,16 +205,26 @@ class Instrument:
                                         raise ImportError("Unrecognized attribute: " + attribute_child.tag)
                                 case "transpose":
                                     # this is relevant only for the difference between sounded and written
+                                    warnings.warn(f"Skipping part transposition for instrument \"{self.full_name}\"")
                                     pass
                                 case "staves" | "staff-details":
                                     # I don't know what these are
                                     warnings.warn(f"Unimplemented attribute \"{attribute_child.tag}\" in mm. {measure_num}")
                                     pass
+                                case "for-part":
+                                    for forpart_child in attribute_child:
+                                        if forpart_child.tag == "part-transpose":
+                                            # this is relevant only for the difference between sounded and written
+                                            warnings.warn(f"Skipping part transposition for instrument \"{self.full_name}\"")
+                                        else:
+                                            raise ImportError("Unrecognized for-part attribute: " + forpart_child.tag)
                                 case _:
                                     raise ImportError("Unrecognized attribute: " + attribute_child.tag)
                     case "direction":
-                        if n_measures_rest > 0:
+                        if n_measures_current_rest > 0:
                             end_extended_rest = True
+                            n_measures_extended_rest = n_measures_current_rest
+                            n_measures_current_rest = 0
                         for direction_child in measure_child:
                             if direction_child.tag not in ["direction-type", "sound", "voice", "staff"]:
                                 if direction_child.tag == "offset": 
@@ -211,17 +282,24 @@ class Instrument:
                             "light-heavy": '"|."',
                             "heavy-light": '".|"',
                         }
+                        end_extended_rest_after = True
                         bar_style = bars[measure_child.find("bar-style").text]
                         if measure_child.find("repeat") is not None:
                             repeat = measure_child.find("repeat").get("direction")
                             if repeat == "forward":
                                 bar_style = bar_style[:-1] + ':"'
+                                end_extended_rest_after = False
+                                if n_measures_current_rest > 0:
+                                    end_extended_rest = True
+                                    n_measures_extended_rest = n_measures_current_rest
+                                    n_measures_current_rest = 0
                             elif repeat == "backward":
                                 bar_style = '":' + bar_style[1:]
                             else:
                                 raise ImportError("Unrecognized repeat direction: " + repeat)
                         measure_strs.append(f"\\bar {bar_style}")
-                        end_extended_rest = True
+                        
+
                     case "backup":
                         # go back by duration amount in the measure_strs list
                         backup_duration = int(measure_child.find('duration').text) / divisions
@@ -240,8 +318,9 @@ class Instrument:
                         assert cur_backed_up == backup_duration
                         measure_strs.append("} \\\\ {")
                         remaining_backup_duration = backup_duration
-                        if n_measures_rest > 0:
-                            n_measures_rest = 0
+
+                        if n_measures_current_rest > 0:
+                            n_measures_current_rest = 0
                             warnings.warn(f"Backup in measure {measure_num} during extended rest")
 
                     case "print":
@@ -254,8 +333,19 @@ class Instrument:
                 new_note = Note(None, time_info, in_cue=in_cue, cue=in_cue, pitch=['s'], duration_num=remaining_backup_duration)
                 ret = add_note(new_note, instrument_strs, expression_buffer, measure_strs, remaining_backup_duration)
                 expression_buffer, remaining_backup_duration, in_cue = ret
-            if debug:
-                print(f"Measure: {measure_num}")
+            
+            if measure_num == "1":
+                if pickup_duration != measure_duration:
+                    measure_strs[pickup_idx] = f"\\partial {note.duration_num_to_str(pickup_duration, measure_duration)}"
+                else:
+                    measure_strs[pickup_idx] = ""
+
+            if end_extended_rest:
+                if n_measures_extended_rest > 1:
+                    replace_with_extended_rests(instrument_strs, extended_rest_measure_duration, n_measures_extended_rest, time_info)
+                end_extended_rest = False
+                n_measures_extended_rest = 0
+
             for s in measure_strs:
                 instrument_strs.append(" ")
                 if isinstance(s, Note) and s.same_chord(last_chord):
@@ -264,31 +354,11 @@ class Instrument:
                     last_chord = s
                 instrument_strs.append(s)
 
-            if end_extended_rest:
-                if n_measures_rest > 1:
-                    instrument_strs_idx = -1
-                    first_rest_idx = None
-                    last_rest_idx = None
-                    n_measures_counted = 0
-                    for s in reversed(instrument_strs[:-1]):
-                        instrument_strs_idx -= 1
-                        if isinstance(s, Note):
-                            if s == measure_rest_note:
-                                first_rest_idx = instrument_strs_idx
-                                n_measures_counted += 1
-                                if last_rest_idx is None:
-                                    last_rest_idx = instrument_strs_idx
-                            if n_measures_counted == n_measures_rest:
-                                break
-                    assert n_measures_counted == n_measures_rest
-                    assert first_rest_idx is not None
-                    assert last_rest_idx is not None
-                    last_note = instrument_strs[first_rest_idx]
-                    last_note.duration_num = n_measures_rest * measure_duration
-                    last_note.duration = note.duration_num_to_str(last_note.duration_num, measure_duration)
-                    instrument_strs[first_rest_idx+1:last_rest_idx+1] = []
-                end_extended_rest = False
-                n_measures_rest = 0
+            if end_extended_rest_after:
+                if n_measures_current_rest > 1:
+                    replace_with_extended_rests(instrument_strs, measure_duration, n_measures_current_rest, time_info)
+                end_extended_rest_after = False
+                n_measures_current_rest = 0
 
             instrument_strs.append("|\n")
         instrument_strs.append("}")

@@ -37,7 +37,7 @@ class Note:
         "64th": '64',
     }
     art_dict = {"staccato": '.', "tenuto": '-', "snap-pizzicato": '\\snappizzicato', 'accent': '>', 'down-bow': '\\db',
-                'up-bow': '\\ub'}
+                'up-bow': '\\ub', 'doit': '\\bendAfter 5 ', 'falloff': '\\bendAfter -5 '}
     slur_dict = {"start": '(', "stop": ')'}
     tie_dict = {"start": '~', "stop": ''}
 
@@ -202,7 +202,10 @@ class Note:
                     for articulation in notation_child:
                         articulation_type = articulation.tag
                         if articulation_type == "fingering":
-                            self.articulations += '-' + articulation.text
+                            if articulation.text.isdecimal():
+                                self.articulations += '-' + articulation.text
+                            else:
+                                self.articulations += f'\\finger "{articulation.text}"'
                         elif articulation_type in self.art_dict:
                             self.articulations += '-' + self.art_dict[articulation_type]
                         else:
