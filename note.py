@@ -12,8 +12,11 @@ def duration_num_to_str(duration_num, measure_duration):
             return f"{int(1.5 / duration_num)}."
         else:
             denominator = 1
-            while (abs(duration_num - int(duration_num)) > denominator / (max_denominator * 2) and
-                   denominator < max_denominator):
+            while (
+                abs(duration_num - int(duration_num))
+                > denominator / (max_denominator * 2)
+                and denominator < max_denominator
+            ):
                 duration_num *= 2
                 denominator *= 2
             return f"{denominator}*{int(duration_num)}"
@@ -26,44 +29,55 @@ def duration_num_to_str(duration_num, measure_duration):
 
 
 class Note:
-    alter_dict = {None: "", '1': "s", '-1': "f"}
+    alter_dict = {None: "", "1": "s", "-1": "f"}
     duration_dict = {
-        "whole": '1',
-        "half": '2',
-        "quarter": '4',
-        "eighth": '8',
-        "16th": '16',
-        "32nd": '32',
-        "64th": '64',
+        "whole": "1",
+        "half": "2",
+        "quarter": "4",
+        "eighth": "8",
+        "16th": "16",
+        "32nd": "32",
+        "64th": "64",
     }
-    art_dict = {"staccato": '.', "tenuto": '-', "snap-pizzicato": '\\snappizzicato', 'accent': '>', 'down-bow': '\\db',
-                'up-bow': '\\ub', 'doit': '\\bendAfter 5 ', 'falloff': '\\bendAfter -5 '}
-    slur_dict = {"start": '(', "stop": ')'}
-    tie_dict = {"start": '~', "stop": ''}
+    art_dict = {
+        "staccato": ".",
+        "tenuto": "-",
+        "snap-pizzicato": "\\snappizzicato",
+        "accent": ">",
+        "down-bow": "\\db",
+        "up-bow": "\\ub",
+        "doit": "\\bendAfter 5 ",
+        "falloff": "\\bendAfter -5 ",
+        "breath-mark": "\\breathe",
+    }
+    slur_dict = {"start": "(", "stop": ")"}
+    tie_dict = {"start": "~", "stop": ""}
 
-    def __init__(self, note_element, time_info, measure_num="-1", in_cue=False, **kwargs):
-        self.pitch = ['']
-        self.duration = ''
+    def __init__(
+        self, note_element, time_info, measure_num="-1", in_cue=False, **kwargs
+    ):
+        self.pitch = [""]
+        self.duration = ""
         self.duration_num = 0  # as a float, proportion of a whole note
-        self.dot = ''
-        self.grace = ''
-        self.start_tuplet = ''
-        self.end_tuplet = ''
-        self.articulations = ''
-        self.slur = ''
-        self.tie = ''
+        self.dot = ""
+        self.grace = ""
+        self.start_tuplet = ""
+        self.end_tuplet = ""
+        self.articulations = ""
+        self.slur = ""
+        self.tie = ""
         self.chord = False
-        self.expression = Expression('')
-        self.start_poly = ''
-        self.end_poly = ''
-        self.trill = ''
-        self.next_expression_buffer = Expression('')
+        self.expression = Expression("")
+        self.start_poly = ""
+        self.end_poly = ""
+        self.trill = ""
+        self.next_expression_buffer = Expression("")
         self.in_cue = in_cue
         self.cue = False
-        self.start_cue = ''
-        self.end_cue = ''
+        self.start_cue = ""
+        self.end_cue = ""
         self.should_end_cue = False
-        self.glissando = ''
+        self.glissando = ""
 
         divisions, measure_duration = time_info
         written_duration = 0
@@ -86,22 +100,30 @@ class Note:
                     if alter is not None:
                         alter = alter.text
                     alter = self.alter_dict[alter]
-                    ly_octave = ''
+                    ly_octave = ""
                     octave = int(note_child.find("octave").text) - 3
                     if octave < 0:
-                        ly_octave = ("," * (0 - octave))
+                        ly_octave = "," * (0 - octave)
                     elif octave > 0:
-                        ly_octave = ("'" * octave)
+                        ly_octave = "'" * octave
                     self.pitch = [pitch + alter + ly_octave]
 
                 case "rest":
                     is_mismatched = False
-                    if note_element.find("type") is not None and note_element.find("duration") is not None:
-                        is_mismatched = (note_element.find("type").text == "whole" and
-                                         int(note_element.find("duration").text) / divisions == measure_duration)
+                    if (
+                        note_element.find("type") is not None
+                        and note_element.find("duration") is not None
+                    ):
+                        is_mismatched = (
+                            note_element.find("type").text == "whole"
+                            and int(note_element.find("duration").text) / divisions
+                            == measure_duration
+                        )
                     if note_child.get("measure") == "yes" or is_mismatched:
-                        self.pitch = ['R']
-                        self.duration = duration_num_to_str(measure_duration, measure_duration)
+                        self.pitch = ["R"]
+                        self.duration = duration_num_to_str(
+                            measure_duration, measure_duration
+                        )
                         written_duration = measure_duration
                     else:
                         self.pitch = ["r"]
@@ -109,7 +131,7 @@ class Note:
                     self.duration_num = int(note_child.text)
                     self.duration_num = self.duration_num / divisions
                 case "dot":
-                    self.dot = '.'
+                    self.dot = "."
                     written_duration *= 1.5
                 case "grace":
                     if note_child.get("slash") != "yes":
@@ -117,18 +139,18 @@ class Note:
                     self.grace = "\\acciaccatura "
                 case "accidental":
                     if note_child.get("parentheses") == "yes":
-                        self.pitch[0] += '?'
+                        self.pitch[0] += "?"
                 case "time-modification":
                     num = int(note_child.find("actual-notes").text)
                     den = int(note_child.find("normal-notes").text)
-                    written_duration *= (den / num)
+                    written_duration *= den / num
                 case "tie":
                     # handled in the notations section
                     pass
                 case "voice":
                     pass
                 case "type":
-                    if self.pitch != ['R']:
+                    if self.pitch != ["R"]:
                         self.duration = self.duration_dict[note_child.text]
                         written_duration = 1 / int(self.duration)
                 case "stem":
@@ -142,7 +164,7 @@ class Note:
                         case "diamond":
                             self.pitch += ["\\harmonic"]
                         case "none":
-                            self.pitch = ['s']
+                            self.pitch = ["s"]
                 case "lyric":
                     pass  # TODO: add lyrics parsing
                 case "instrument" | "staff":
@@ -153,9 +175,11 @@ class Note:
                         self.in_cue = True
                         self.start_cue = "\\new CueVoice { "
                 case _:
-                    raise ImportError(f"Unrecognized note child: \"{note_child.tag}\" in mm. {measure_num}")
+                    raise ImportError(
+                        f'Unrecognized note child: "{note_child.tag}" in mm. {measure_num}'
+                    )
         if note_element.get("print-object") == "no":
-            self.pitch = ['s']
+            self.pitch = ["s"]
         if not self.cue and self.in_cue:
             self.in_cue = False
             self.should_end_cue = True
@@ -177,16 +201,31 @@ class Note:
         return set(self.pitch) == set(other.pitch)
 
     def __str__(self):
-        if not self.chord or (self.chord and self.pitch == ['q']):
+        if not self.chord or (self.chord and self.pitch == ["q"]):
             note = self.pitch[0]
         else:
-            if set(self.pitch) == {'s'}:
-                note = 's'
+            if set(self.pitch) == {"s"}:
+                note = "s"
             else:
-                note = '<' + ' '.join(self.pitch) + '>'
-        return (self.start_poly + self.start_cue + self.start_tuplet + self.grace + note + self.duration + self.dot +
-                self.articulations + str(self.expression) + self.trill + self.glissando + self.slur + self.tie +
-                self.end_tuplet + self.end_cue + self.end_poly)
+                note = "<" + " ".join(self.pitch) + ">"
+        return (
+            self.start_poly
+            + self.start_cue
+            + self.start_tuplet
+            + self.grace
+            + note
+            + self.duration
+            + self.dot
+            + self.articulations
+            + str(self.expression)
+            + self.trill
+            + self.glissando
+            + self.slur
+            + self.tie
+            + self.end_tuplet
+            + self.end_cue
+            + self.end_poly
+        )
 
     def parse_notation(self, notation, num, den):
         for notation_child in notation:
@@ -203,13 +242,15 @@ class Note:
                         articulation_type = articulation.tag
                         if articulation_type == "fingering":
                             if articulation.text.isdecimal():
-                                self.articulations += '-' + articulation.text
+                                self.articulations += "-" + articulation.text
                             else:
                                 self.articulations += f'\\finger "{articulation.text}"'
                         elif articulation_type in self.art_dict:
-                            self.articulations += '-' + self.art_dict[articulation_type]
+                            self.articulations += "-" + self.art_dict[articulation_type]
                         else:
-                            raise ImportError("Unrecognized articulation type: " + articulation_type)
+                            raise ImportError(
+                                "Unrecognized articulation type: " + articulation_type
+                            )
                 case "slur":
                     self.slur = self.slur_dict[notation_child.get("type")]
                 case "tied":
@@ -218,7 +259,7 @@ class Note:
                     for ornament in notation_child:
                         match ornament.tag:
                             case "trill-mark":
-                                self.trill = '\\trill'
+                                self.trill = "\\trill"
                             case "wavy-line":
                                 if ornament.get("type") == "start":
                                     if self.trill == "\\trill":
@@ -231,22 +272,38 @@ class Note:
                                     warnings.warn("Wavy line continue not implemented")
                                 else:
                                     raise ImportError(
-                                        "Unrecognized wavy line type: " + ornament.get("type"))
+                                        "Unrecognized wavy line type: "
+                                        + ornament.get("type")
+                                    )
                             case "inverted-mordent":
                                 self.trill = "\\prall"
                             case _:
-                                raise ImportError("Unrecognized ornament: " + ornament.tag)
+                                raise ImportError(
+                                    "Unrecognized ornament: " + ornament.tag
+                                )
                 case "slide":
                     if notation_child.get("type") == "start":
                         self.glissando = "\\glissando"
                 case _:
-                    raise ImportError("Unrecognized notation child: " + notation_child.tag)
+                    raise ImportError(
+                        "Unrecognized notation child: " + notation_child.tag
+                    )
 
     def __eq__(self, other):
         if not isinstance(other, Note):
             return False
-        return (self.pitch == other.pitch and self.duration == other.duration and self.dot == other.dot and
-                self.grace == other.grace and self.start_tuplet == other.start_tuplet and
-                self.end_tuplet == other.end_tuplet and self.articulations == other.articulations and
-                self.slur == other.slur and self.tie == other.tie and self.chord == other.chord and
-                self.trill == other.trill and self.cue == other.cue and self.glissando == other.glissando)
+        return (
+            self.pitch == other.pitch
+            and self.duration == other.duration
+            and self.dot == other.dot
+            and self.grace == other.grace
+            and self.start_tuplet == other.start_tuplet
+            and self.end_tuplet == other.end_tuplet
+            and self.articulations == other.articulations
+            and self.slur == other.slur
+            and self.tie == other.tie
+            and self.chord == other.chord
+            and self.trill == other.trill
+            and self.cue == other.cue
+            and self.glissando == other.glissando
+        )
